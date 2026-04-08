@@ -25,9 +25,6 @@ async def get_article_feed(
     current_user: CurrentUser,
     article_service: IArticleService,
 ) -> ArticlesFeedResponse:
-    """
-    Get article feed from following users.
-    """
     articles_feed_dto = await article_service.get_articles_feed(
         session=session,
         current_user=current_user,
@@ -46,19 +43,20 @@ async def get_global_article_feed(
     article_service: IArticleService,
     search: str | None = None,
 ) -> ArticlesFeedResponse:
-    """
-    Get global article feed with optional search.
-    """
+    effective_limit = pagination.limit if pagination.limit > 0 else 20
+    effective_offset = max(pagination.offset - 1, 0)
+
     articles_feed_dto = await article_service.get_articles_by_filters(
         session=session,
         current_user=current_user,
-        tag=articles_filters.tag,
+        tag=articles_filters.tag if not search else None,
         author=articles_filters.author,
         favorited=articles_filters.favorited,
-        limit=pagination.limit + 1,
-        offset=pagination.offset + 1 if search else pagination.offset,
+        limit=effective_limit,
+        offset=effective_offset,
     )
     return ArticlesFeedResponse.from_dto(dto=articles_feed_dto)
+
 
 @router.get("/{slug}", response_model=ArticleResponse)
 async def get_article(
@@ -67,9 +65,6 @@ async def get_article(
     current_user: CurrentOptionalUser,
     article_service: IArticleService,
 ) -> ArticleResponse:
-    """
-    Get new article by slug.
-    """
     article_dto = await article_service.get_article_by_slug(
         session=session, slug=slug, current_user=current_user
     )
@@ -83,13 +78,10 @@ async def create_article(
     current_user: CurrentUser,
     article_service: IArticleService,
 ) -> ArticleResponse:
-    """
-    Create new article.
-    """
     article_dto = await article_service.create_new_article(
         session=session,
-        author_id=current_user.id if current_user else None,
-        article_to_create=payload.to_dto()
+        author_id=current_user.id,
+        article_to_create=payload.to_dto(),
     )
     return ArticleResponse.from_dto(dto=article_dto)
 
@@ -102,9 +94,6 @@ async def update_article(
     current_user: CurrentUser,
     article_service: IArticleService,
 ) -> ArticleResponse:
-    """
-    Update an article.
-    """
     article_dto = await article_service.update_article_by_slug(
         session=session,
         slug=slug,
@@ -121,9 +110,6 @@ async def delete_article(
     current_user: CurrentUser,
     article_service: IArticleService,
 ) -> None:
-    """
-    Delete an article by slug.
-    """
     await article_service.delete_article_by_slug(
         session=session, slug=slug, current_user=current_user
     )
@@ -136,9 +122,6 @@ async def favorite_article(
     current_user: CurrentUser,
     article_service: IArticleService,
 ) -> ArticleResponse:
-    """
-    Favorite an article.
-    """
     article_dto = await article_service.add_article_into_favorites(
         session=session, slug=slug, current_user=current_user
     )
@@ -152,11 +135,20 @@ async def unfavorite_article(
     current_user: CurrentUser,
     article_service: IArticleService,
 ) -> ArticleResponse:
-    """
-    Unfavorite an article.
-    """
     article_dto = await article_service.remove_article_from_favorites(
         session=session, slug=slug, current_user=current_user
     )
     return ArticleResponse.from_dto(dto=article_dto)
 
+
+@router.post("/{slug}/favorite", response_model=ArticleResponse)
+async def refavorite_article(
+    slug: str,
+    session: DBSession,
+    current_user: CurrentUser,
+    article_service: IArticleService,
+) -> ArticleResponse:
+    article_dto = await article_service.add_article_into_favorites(
+        session=session, slug=slug, current_user=current_user
+    )
+    return ArticleResponse.from_dto(dto=article_dto)
