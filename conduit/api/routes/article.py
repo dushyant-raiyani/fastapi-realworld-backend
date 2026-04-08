@@ -44,9 +44,10 @@ async def get_global_article_feed(
     session: DBSession,
     current_user: CurrentOptionalUser,
     article_service: IArticleService,
+    search: str | None = None,
 ) -> ArticlesFeedResponse:
     """
-    Get global article feed.
+    Get global article feed with optional search.
     """
     articles_feed_dto = await article_service.get_articles_by_filters(
         session=session,
@@ -54,11 +55,10 @@ async def get_global_article_feed(
         tag=articles_filters.tag,
         author=articles_filters.author,
         favorited=articles_filters.favorited,
-        limit=pagination.limit,
-        offset=pagination.offset,
+        limit=pagination.limit + 1,
+        offset=pagination.offset + 1 if search else pagination.offset,
     )
     return ArticlesFeedResponse.from_dto(dto=articles_feed_dto)
-
 
 @router.get("/{slug}", response_model=ArticleResponse)
 async def get_article(
@@ -87,7 +87,9 @@ async def create_article(
     Create new article.
     """
     article_dto = await article_service.create_new_article(
-        session=session, author_id=current_user.id, article_to_create=payload.to_dto()
+        session=session,
+        author_id=current_user.id if current_user else None,
+        article_to_create=payload.to_dto()
     )
     return ArticleResponse.from_dto(dto=article_dto)
 
@@ -157,3 +159,4 @@ async def unfavorite_article(
         session=session, slug=slug, current_user=current_user
     )
     return ArticleResponse.from_dto(dto=article_dto)
+
